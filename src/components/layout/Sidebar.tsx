@@ -128,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     >
                       <Icon className="w-5 h-5" />
                     </div>
-                    <span className="font-medium text-sm">{item.label}</span>
+                    <span className="font-medium text-md">{item.label}</span>
                   </button>
                 </li>
               );
