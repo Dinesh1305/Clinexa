@@ -1,5 +1,5 @@
 // src/components/doctor/Ai.tsx
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   Copy,
   Plus,
@@ -9,6 +9,7 @@ import {
   Loader,
   FlaskConical,
   Trash2,
+  X, // Added X icon for Stop button
 } from "lucide-react";
 import { Patient, Medication } from "../../types";
 import { usePrescription } from "../../contexts/PrescriptionContext";
@@ -52,8 +53,6 @@ interface LabInvestigationData {
   };
 }
 
-// 🚨 REMOVED: MedicationRow interface is no longer needed
-
 interface MedicalDashboardProps {
   consultation: ConsultationData; // Using the explicit type
   selectedPatient: Patient;
@@ -86,14 +85,26 @@ const MedicalDashboard: React.FC<MedicalDashboardProps> = ({
       doctorTests: { cbc: false, lft: false, rft: false },
     });
 
-  // 🚨 REMOVED: const [medicationRows, setMedicationRows] = useState<MedicationRow[]>([]);
-
   const [isLoading, setIsLoading] = useState(false); // Used for AI generation
   const [isSendingLab, setIsSendingLab] = useState(false); // State for lab submission
 
+  // 🟢 NEW: AbortController Ref for stop functionality
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const labResults = ["ECG", "X-RAY", "TCA-troraric", "In-xity coavortiatric"];
 
-  // 🚨 REMOVED: handleCopyPrescription function
+  // 🟢 NEW: Function to handle stopping the fetch request
+  const handleStopGeneration = () => {
+    if (abortControllerRef.current) {
+      // Abort the pending fetch request
+      abortControllerRef.current.abort();
+      // Clean up UI state
+      setIsLoading(false);
+      // alert("AI generation stopped by user."); // REMOVED
+      // Clear the ref
+      abortControllerRef.current = null;
+    }
+  };
 
   const handleGenerateSuggestions = async () => {
     // ⚠️ Prefer storing your key on the server; this inline usage is only for local testing.
@@ -105,6 +116,11 @@ const MedicalDashboard: React.FC<MedicalDashboardProps> = ({
       );
       return;
     }
+
+    // 1. Setup AbortController
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const { signal } = controller;
 
     setIsLoading(true);
 
@@ -162,6 +178,7 @@ Do not include any explanatory text or markdown formatting outside of the JSON o
             ],
             response_format: { type: "json_object" },
           }),
+          signal, // 2. Attach the abort signal to the fetch request
         }
       );
 
@@ -200,9 +217,6 @@ Do not include any explanatory text or markdown formatting outside of the JSON o
             }));
           }
 
-          // ----------------------------------------------------------------------
-          // 🟢 CRITICAL CHANGE: DIRECTLY ADD TO PRESCRIPTION CONTEXT
-          // ----------------------------------------------------------------------
           if (
             Array.isArray(aiResponse.medications) &&
             aiResponse.medications.length > 0
@@ -218,7 +232,6 @@ Do not include any explanatory text or markdown formatting outside of the JSON o
             addMedications(medicationsToCopy);
             console.log("AI prescription suggestions automatically added.");
           }
-          // ----------------------------------------------------------------------
         } catch (e) {
           console.error(
             "Failed to parse AI response JSON. Raw content:",
@@ -231,13 +244,19 @@ Do not include any explanatory text or markdown formatting outside of the JSON o
           );
         }
       }
-    } catch (err) {
-      console.error("Error calling OpenAI API:", err);
-      alert(
-        "Failed to connect to the AI service. Check network or API key setup."
-      );
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        console.log("AI generation aborted by user.");
+        // The AbortError is handled silently as requested
+      } else {
+        console.error("Error calling OpenAI API:", err);
+        alert(
+          "Failed to connect to the AI service. Check network or API key setup."
+        );
+      }
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null; // Clear the ref after success, failure, or abort
     }
   };
 
@@ -341,27 +360,29 @@ Do not include any explanatory text or markdown formatting outside of the JSON o
   return (
     <div className="space-y-3 p-2 bg-gray-100 font-sans text-md">
       <div className="bg-white p-2 rounded shadow border border-gray-200">
-        <button
-          onClick={handleGenerateSuggestions}
-          disabled={isLoading}
-          className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-[#012e58] to-[#1a4b7a] text-white rounded-lg hover:from-[#1a4b7a] hover:to-[#012e58] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? (
-            <>
-              <Loader className="w-5 h-5 animate-spin" />
-              <span className="text-lg font-semibold">
-                Generating AI Suggestions...
-              </span>
-            </>
-          ) : (
-            <>
-              <Brain className="w-5 h-5" />
-              <span className="text-lg font-semibold">
-                Generate AI Suggestions from Assessment
-              </span>
-            </>
-          )}
-        </button>
+        {/* 🟢 CONDITIONAL BUTTON DISPLAY */}
+        {!isLoading ? (
+          <button
+            onClick={handleGenerateSuggestions}
+            disabled={isLoading}
+            className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-[#012e58] to-[#1a4b7a] text-white rounded-lg hover:from-[#1a4b7a] hover:to-[#012e58] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Brain className="w-5 h-5" />
+            <span className="text-lg font-semibold">
+              Generate AI Suggestions from Assessment
+            </span>
+          </button>
+        ) : (
+          <button
+            onClick={handleStopGeneration}
+            className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            <X className="w-5 h-5" />
+            <span className="text-lg font-semibold">Stop Generation</span>
+            <Loader className="w-4 h-4 ml-2 animate-spin" />
+          </button>
+        )}
+        {/* END CONDITIONAL BUTTON DISPLAY */}
       </div>
       {/* Diagnosis */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -554,7 +575,6 @@ Do not include any explanatory text or markdown formatting outside of the JSON o
           ))}
         </div>
       </div>
-      {/* 🚨 REMOVED: AI-Suggested Medication Section JSX */}
     </div>
   );
 };
