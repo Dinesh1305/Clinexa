@@ -959,17 +959,36 @@ export const AllergiesSection: React.FC<AllergiesSectionProps> = ({
       </div>
 
       <div className="p-4">
-        <label className="flex items-center space-x-2 mb-4">
-          <input
-            type="checkbox"
-            checked={data.hasAllergies}
-            onChange={(e) => toggleAllergies(e.target.checked)}
-            className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500"
-          />
-          <span className="text-lg font-medium text-[#0B2D4D]">
-            Patient has known allergies
-          </span>
-        </label>
+        {/* REPLACED CHECKBOX WITH YES/NO BUTTONS */}
+        <div className="mb-4">
+          <p className="text-lg font-medium text-[#0B2D4D] mb-2">
+            Does the patient have known allergies?
+          </p>
+          <div className="flex space-x-4">
+            <button
+              type="button"
+              onClick={() => toggleAllergies(true)}
+              className={`px-6 py-2 rounded-lg border transition-colors font-medium ${
+                data.hasAllergies
+                  ? "bg-red-600 text-white border-red-600"
+                  : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleAllergies(false)}
+              className={`px-6 py-2 rounded-lg border transition-colors font-medium ${
+                !data.hasAllergies
+                  ? "bg-green-600 text-white border-green-600"
+                  : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              No
+            </button>
+          </div>
+        </div>
 
         {isExpanded && data.hasAllergies && (
           <div className="space-y-4 pt-3 border-t border-gray-200">
