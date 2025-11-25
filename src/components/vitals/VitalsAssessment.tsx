@@ -17,16 +17,15 @@ import {
   AlertCircle,
   Loader,
   X,
-  Gauge, // Added for MAP
-  Waves, // Added for Pain Score/Respiration
-  Droplet, // Added for GCS
+  Gauge,
+  Waves,
+  Droplet,
 } from "lucide-react";
 import { db } from "../../firebase";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 
 // --- TYPE DEFINITIONS ---
 
-// Assuming the external Patient type looks something like this:
 export interface Patient {
   id: string;
   uhid: string;
@@ -36,22 +35,21 @@ export interface Patient {
   chronicConditions?: string[];
 }
 
-// Updated VitalsState with new fields
 export interface VitalsState {
   weight: string;
   height: string;
-  bmi: string; // Calculated
+  bmi: string;
   pulse: string;
-  bpSystolic: string; // New
-  bpDiastolic: string; // New
+  bpSystolic: string;
+  bpDiastolic: string;
   temperature: string;
   spo2: string;
   respiratoryRate: string;
-  painScore: string; // New
-  gcsE: string; // New
-  gcsV: string; // New
-  gcsM: string; // New
-  map: string; // Calculated
+  painScore: string;
+  gcsE: string;
+  gcsV: string;
+  gcsM: string;
+  map: string;
   riskFlags: {
     diabetes: boolean;
     heartDisease: boolean;
@@ -115,13 +113,11 @@ function vitalsReducer(
   }
 }
 
-// Helper to check for a valid positive number string (General Rule: no negatives)
 const isValidNumber = (value: string) => {
   const num = parseFloat(value);
   return !isNaN(num) && num > 0;
 };
 
-// Helper to categorize vital sign for color/warning based on checklist rules
 const getVitalCategory = (
   value: number | string,
   critRedLow: number | null,
@@ -132,7 +128,6 @@ const getVitalCategory = (
   const num = parseFloat(String(value));
   if (isNaN(num)) return { color: "text-gray-500", label: "" };
 
-  // Critical (Red) Check
   if (
     (critRedLow !== null && num < critRedLow) ||
     (critRedHigh !== null && num >= critRedHigh)
@@ -140,7 +135,6 @@ const getVitalCategory = (
     return { color: "text-red-600", label: "Critical" };
   }
 
-  // Warning (Amber) Check - simplified for ranges like 90-93
   if (
     warnAmberLow !== null &&
     num >= warnAmberLow &&
@@ -150,21 +144,17 @@ const getVitalCategory = (
     return { color: "text-yellow-600", label: "Warning" };
   }
 
-  // Fall through to Normal (Green)
   return { color: "text-green-600", label: "Normal" };
 };
 
-// --- MAIN COMPONENT ---
 interface VitalsAssessmentProps {
   selectedPatient?: Patient | null;
   onBack?: () => void;
-  isSubcomponent?: boolean; // New prop to indicate if used as subcomponent
+  isSubcomponent?: boolean;
 }
 
-// NEW HELPER for Oxygen Icon/Alert (UX Note)
 const O2Alert: React.FC<{ spo2: string }> = ({ spo2 }) => {
   const num = parseFloat(spo2);
-  // Show O₂ icon if SpO₂ < 92
   if (isNaN(num) || num >= 92) return null;
 
   return (
@@ -177,7 +167,6 @@ const O2Alert: React.FC<{ spo2: string }> = ({ spo2 }) => {
   );
 };
 
-// Pain Scale Smiley Slider Component
 const PainScaleSlider: React.FC<{
   value: string;
   onChange: (value: string) => void;
@@ -241,7 +230,6 @@ const PainScaleSlider: React.FC<{
   );
 };
 
-// GCS Compact Dropdown Component
 const GCSDropdown: React.FC<{
   title: string;
   value: string;
@@ -277,7 +265,6 @@ const GCSDropdown: React.FC<{
   </div>
 );
 
-// GCS Options
 const GCS_OPTIONS = {
   E: [
     { value: "4", label: "Spontaneous" },
@@ -318,9 +305,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
   const [aiSummary, setAiSummary] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  // --- DERIVED STATE & MEMOIZED FUNCTIONS ---
-
-  // 1. Calculate BMI and MAP whenever their dependencies change
   useEffect(() => {
     const heightM = parseFloat(vitals.height) / 100;
     const weightKg = parseFloat(vitals.weight);
@@ -329,7 +313,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
     let newBmi = vitals.bmi;
     let newMap = vitals.map;
 
-    // Calculate BMI
     if (heightM > 0 && weightKg > 0) {
       const calculatedBmi = (weightKg / (heightM * heightM)).toFixed(1);
       if (calculatedBmi !== vitals.bmi) {
@@ -339,7 +322,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
       newBmi = "";
     }
 
-    // Calculate MAP: MAP = Diastolic + 1/3 (Systolic - Diastolic)
     if (isValidNumber(vitals.bpSystolic) && isValidNumber(vitals.bpDiastolic)) {
       if (systolic > diastolic) {
         const calculatedMap = (
@@ -392,13 +374,10 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
     return null;
   }, [vitals.bmi, getBMICategory]);
 
-  // --- EVENT HANDLERS ---
-
   const handleVitalChange = useCallback(
     (field: keyof VitalsState, value: string) => {
       let sanitizedValue = value;
 
-      // Rule: Allow only numbers and a single decimal point (for most vitals)
       if (
         [
           "weight",
@@ -418,7 +397,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
         }
       }
 
-      // Rule: Allow only integers for GCS and Pain Score
       if (["painScore", "gcsE", "gcsV", "gcsM"].includes(field)) {
         sanitizedValue = value.replace(/[^0-9]/g, "");
       }
@@ -434,9 +412,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
   const validateVitals = useCallback(() => {
     const errors: Record<string, string> = {};
 
-    // --- Mandatory Vitals (from checklist) ---
-    // Height & Weight are NOT mandatory
-    // Temperature, Pulse, RR, SpO₂, BP Sys/Dia are mandatory
     if (
       !isValidNumber(vitals.temperature) ||
       parseFloat(vitals.temperature) < 1
@@ -459,9 +434,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
     )
       errors.bpDiastolic = "Required";
 
-    // --- Range Validation (from checklist) ---
-    // General rule: No negatives enforced by isValidNumber > 0 and input sanitization
-
     const pulse = parseFloat(vitals.pulse);
     if (vitals.pulse && (pulse < 30 || pulse > 220))
       errors.pulse = "30-220 bpm only";
@@ -480,7 +452,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
     if (vitals.bpDiastolic && (bpdia < 40 || bpdia > 150))
       errors.bpDiastolic = "40-150 mmHg only";
 
-    // Height & Weight range checks (not mandatory, so only check if a value is present)
     const weight = parseFloat(vitals.weight);
     if (vitals.weight && (weight < 1 || weight > 350))
       errors.weight = "1-350 kg only";
@@ -488,7 +459,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
     if (vitals.height && (height < 30 || height > 250))
       errors.height = "30-250 cm only";
 
-    // Range Validation for Pain Score and GCS (from checklist)
     const painScore = parseFloat(vitals.painScore);
     if (
       vitals.painScore &&
@@ -500,7 +470,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
     const gcsE = parseInt(vitals.gcsE);
     const gcsV = parseInt(vitals.gcsV);
     const gcsM = parseInt(vitals.gcsM);
-    // GCS E: 1-4, V: 1-5, M: 1-6
     if (vitals.gcsE && (gcsE < 1 || gcsE > 4 || !Number.isInteger(gcsE)))
       errors.gcsE = "1-4";
     if (vitals.gcsV && (gcsV < 1 || gcsV > 5 || !Number.isInteger(gcsV)))
@@ -508,7 +477,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
     if (vitals.gcsM && (gcsM < 1 || gcsM > 6 || !Number.isInteger(gcsM)))
       errors.gcsM = "1-6";
 
-    // GCS total check (3-15 total)
     if (vitals.gcsE && vitals.gcsV && vitals.gcsM) {
       const total = gcsE + gcsV + gcsM;
       if (total < 3 || total > 15) {
@@ -526,10 +494,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
       return;
     }
 
-    // IMPORTANT: Validation logic for mandatory fields
-    // We run full validation as it handles range checks for all fields
-
-    // We run full validation anyway as it handles range checks for all.
     if (!validateVitals()) {
       setStatus({ errorMessage: "Please fix the errors before saving." });
       return;
@@ -544,7 +508,7 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
 
       const vitalsData = {
         patientId: selectedPatient.id,
-        patientUhid: selectedPatient.uhid || "", // ADDED: Ensure UHID is saved for lookup
+        patientUhid: selectedPatient.uhid || "",
         patientName: selectedPatient.fullName || "",
         weight: vitals.weight || "",
         height: vitals.height || "",
@@ -566,7 +530,7 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
           kidney: vitals.riskFlags.kidney,
         },
         recordedAt: Timestamp.now(),
-        recordedBy: "Medical Staff", // This could be dynamic in a real app
+        recordedBy: "Medical Staff",
         status: "completed",
       };
 
@@ -593,7 +557,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
   };
 
   const handleAiAssist = async () => {
-    // ... AI Assist logic remains the same (now uses OpenAI API for summary)
     if (!selectedPatient) {
       setAiSummary("Please select a patient first.");
       setIsModalOpen(true);
@@ -639,11 +602,9 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            // Replace with your actual key management (env var, server proxy, etc.)
             Authorization: `Bearer `,
           },
           body: JSON.stringify({
-            // Choose your preferred OpenAI chat model
             model: "gpt-5-nano",
             messages: [
               {
@@ -656,7 +617,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
                 content: prompt,
               },
             ],
-            //temperature: 0.2,
           }),
         }
       );
@@ -676,7 +636,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
     }
   };
 
-  // --- RENDER ---
   return (
     <div
       className={
@@ -684,7 +643,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
       }
     >
       <div className={isSubcomponent ? "" : "max-w-7xl mx-auto"}>
-        {/* Header - Only show if not a subcomponent */}
         {!isSubcomponent && (
           <header className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
@@ -707,7 +665,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
               </div>
             </div>
 
-            {/* Dynamic Patient Info */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 text-right">
               <p className="text-lg text-[#1a4b7a]">Current Patient</p>
               <p className="font-semibold text-[#0B2D4D]">
@@ -727,7 +684,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
           </header>
         )}
 
-        {/* Status Messages - Only show if not a subcomponent */}
         {!isSubcomponent && status.showSuccess && (
           <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center space-x-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -741,16 +697,13 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
           </div>
         )}
 
-        {/* Vitals Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-6">
-          {/* Row 1: Weight, Height, BMI */}
           <VitalCard
             title="Weight"
             value={vitals.weight}
             unit="kg"
             icon={Activity}
             field="weight"
-            normal="1-350"
             onChange={handleVitalChange}
             error={status.validationErrors.weight}
             category={getVitalCategory(
@@ -759,7 +712,7 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
               1,
               351,
               351
-            )} // Range check (1-350)
+            )}
           />
           <VitalCard
             title="Height"
@@ -767,7 +720,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
             unit="cm"
             icon={Activity}
             field="height"
-            normal="30-250"
             onChange={handleVitalChange}
             error={status.validationErrors.height}
             category={getVitalCategory(
@@ -776,21 +728,18 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
               30,
               251,
               251
-            )} // Range check (30-250)
+            )}
           />
           <BMIResultCard bmi={vitals.bmi} category={bmiCategory} />
 
-          {/* Row 2: Pulse, Temperature, BP Systolic, BP Diastolic, MAP */}
           <VitalCard
             title="Pulse"
             value={vitals.pulse}
             unit="bpm"
             icon={Heart}
             field="pulse"
-            normal="60-100"
             onChange={handleVitalChange}
             error={status.validationErrors.pulse}
-            // Crit < 40 (Red), Warn 100-119 (Amber), Crit >= 120 (Red)
             category={getVitalCategory(
               parseFloat(vitals.pulse),
               40,
@@ -805,10 +754,8 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
             unit="°F"
             icon={Thermometer}
             field="temperature"
-            normal="97.8-100.4"
             onChange={handleVitalChange}
             error={status.validationErrors.temperature}
-            // Crit < 95 (Red), Warn 100.5-101.9 (Amber), Crit >= 102 (Red)
             category={getVitalCategory(
               parseFloat(vitals.temperature),
               95,
@@ -818,17 +765,14 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
             )}
           />
 
-          {/* Row 3: BP Fields and SpO2, Resp Rate, Pain Score */}
           <VitalCard
             title="BP Systolic"
             value={vitals.bpSystolic}
             unit="mmHg"
             icon={Heart}
             field="bpSystolic"
-            normal="<140"
             onChange={handleVitalChange}
             error={status.validationErrors.bpSystolic}
-            // Crit <= 90 (Red), Warn 140-159 (Amber), Crit >= 160 (Red)
             category={getVitalCategory(
               parseFloat(vitals.bpSystolic),
               90,
@@ -843,31 +787,26 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
             unit="mmHg"
             icon={Heart}
             field="bpDiastolic"
-            normal="<90"
             onChange={handleVitalChange}
             error={status.validationErrors.bpDiastolic}
-            // Crit >= 100 (Red), Warn 90-99 (Amber)
             category={getVitalCategory(
               parseFloat(vitals.bpDiastolic),
               null,
               90,
               100,
               100
-            )} // No low crit in checklist, using null. Warning is 90 up to 100 (non-inclusive).
+            )}
           />
           <MAPResultCard map={vitals.map} />
 
-          {/* Row 4: SpO2, Respiratory Rate, Pain Score */}
           <VitalCard
             title="SPO₂"
             value={vitals.spo2}
             unit="%"
             icon={Activity}
             field="spo2"
-            normal=">93"
             onChange={handleVitalChange}
             error={status.validationErrors.spo2}
-            // Crit < 90 (Red), Warn 90-93 (Amber)
             category={getVitalCategory(
               parseFloat(vitals.spo2),
               90,
@@ -883,10 +822,8 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
             unit="breaths/min"
             icon={Waves}
             field="respiratoryRate"
-            normal="12-21"
             onChange={handleVitalChange}
             error={status.validationErrors.respiratoryRate}
-            // Crit <= 8 (Red), Warn 22-29 (Amber), Crit >= 30 (Red)
             category={getVitalCategory(
               parseFloat(vitals.respiratoryRate),
               8,
@@ -902,7 +839,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
           />
         </div>
 
-        {/* GCS Fields - Enhanced with Compact Dropdowns */}
         <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
           <h3 className="text-lg font-semibold text-[#0B2D4D] mb-4 flex items-center space-x-2">
             <Droplet className="w-5 h-5 text-[#012e58]" />
@@ -973,7 +909,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
           </div>
         </div>
 
-        {/* Risk Assessment & Actions - Only show if not a subcomponent */}
         {!isSubcomponent && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -1035,7 +970,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
           </div>
         )}
 
-        {/* NEW: Dedicated Save Vitals Button for Subcomponent (Pre-OPD Intake) */}
         {isSubcomponent && (
           <div className="bg-white rounded-lg border border-gray-200 p-4 mt-6">
             <button
@@ -1064,7 +998,6 @@ export const VitalsAssessment: React.FC<VitalsAssessmentProps> = ({
     </div>
   );
 };
-// --- SUB-COMPONENTS (Modified/New) ---
 
 const VitalCard: React.FC<{
   title: string;
@@ -1072,7 +1005,6 @@ const VitalCard: React.FC<{
   unit: string;
   icon: React.ComponentType<any>;
   field: keyof Omit<VitalsState, "riskFlags" | "bmi" | "map">;
-  normal?: string;
   onChange: (
     field: keyof Omit<VitalsState, "riskFlags" | "bmi" | "map">,
     value: string
@@ -1086,13 +1018,11 @@ const VitalCard: React.FC<{
   unit,
   icon: Icon,
   field,
-  normal,
   onChange,
   error,
   category,
   customContent,
 }) => {
-  // Enhanced color chip styling
   const getChipStyle = (label: string) => {
     switch (label) {
       case "Critical":
@@ -1127,7 +1057,7 @@ const VitalCard: React.FC<{
           </span>
         )}
       </div>
-      {customContent} {/* Render custom content (like O2 icon) */}
+      {customContent}
       <div className="relative">
         <input
           type="text"
@@ -1142,9 +1072,6 @@ const VitalCard: React.FC<{
         </span>
       </div>
       <div className="flex items-center justify-between mt-2 h-4">
-        {normal && (
-          <span className="text-md text-gray-400">Normal: {normal}</span>
-        )}
         {error && (
           <span className="text-md text-red-600 flex items-center gap-1 font-medium">
             <AlertCircle size={12} />
@@ -1156,7 +1083,6 @@ const VitalCard: React.FC<{
   );
 };
 
-// Pain Score Card with Smiley Slider
 const PainScoreCard: React.FC<{
   value: string;
   onChange: (value: string) => void;
@@ -1216,14 +1142,11 @@ const MAPResultCard: React.FC<{ map: string }> = ({ map }) => (
         mmHg
       </span>
     </div>
-    <div className="flex items-center justify-end mt-2 h-4">
-      {/* MAP Calculation: Diastolic + 1/3 (Systolic - Diastolic) */}
-    </div>
+    <div className="flex items-center justify-end mt-2 h-4"></div>
   </div>
 );
 
 const FormattedAiSummary: React.FC<{ summary: string }> = ({ summary }) => {
-  // Unchanged
   const lines = summary.split("\n").filter((line) => line.trim() !== "");
 
   return (
@@ -1267,13 +1190,9 @@ const AiSummaryModal: React.FC<{
   isLoading: boolean;
 }> = ({ isOpen, onClose, summary, isLoading }) => {
   if (!isOpen) return null;
-  // Unchanged
   return (
-    // Modal Overlay
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 animate-fade-in-fast">
-      {/* Modal Content */}
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col transform transition-all duration-300 ease-in-out scale-95 animate-scale-in">
-        {/* Modal Header */}
         <div className="flex items-center justify-between p-5 border-b border-gray-200 bg-[#F8F9FA] rounded-t-xl">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-[#e0f7fa] rounded-full">
@@ -1291,7 +1210,6 @@ const AiSummaryModal: React.FC<{
           </button>
         </div>
 
-        {/* Modal Body */}
         <div className="p-6 overflow-y-auto flex-grow">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full min-h-[250px] text-center">
@@ -1308,7 +1226,6 @@ const AiSummaryModal: React.FC<{
           )}
         </div>
 
-        {/* Modal Footer */}
         <div className="flex items-center justify-end p-4 border-t border-gray-200 bg-[#F8F9FA] rounded-b-xl">
           <button
             onClick={onClose}
