@@ -21,7 +21,7 @@ import DoctorForm from "./components/auth/DoctorForm";
 import Ai from "./components/doctor/Ai";
 import IPDQueue from "./components/queue/IPDQueue";
 import LabTestQueue from "./components/LabModule/LabTestQueue"; // ⬅️ IMPORTED
-
+import AdminDashboard from "./pages/AdminDashboard";
 function App() {
   return (
     <div className="text-lg">
@@ -29,6 +29,7 @@ function App() {
         <Router>
           <Routes>
             {/* Public routes */}
+            <Route path="admin" element={<AdminDashboard/>}/>
             <Route path="/" element={<LoginPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
