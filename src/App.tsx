@@ -1,4 +1,3 @@
-// App.tsx
 import React from "react";
 import {
   BrowserRouter as Router,
@@ -8,7 +7,7 @@ import {
 } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
-import { Layout } from "./components/layout/Layout"; // Use named import
+import { Layout } from "./components/layout/Layout";
 import LoginPage from "./components/auth/LoginPage";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { PatientRegistration } from "./components/registration/PatientRegistration";
@@ -20,7 +19,7 @@ import SignupPage from "./components/auth/SignupPage";
 import DoctorForm from "./components/auth/DoctorForm";
 import Ai from "./components/doctor/Ai";
 import IPDQueue from "./components/queue/IPDQueue";
-import LabTestQueue from "./components/LabModule/LabTestQueue"; // ⬅️ IMPORTED
+import LabTestQueue from "./components/LabModule/LabTestQueue";
 
 function App() {
   return (
@@ -36,7 +35,8 @@ function App() {
             <Route path="/sign" element={<SignupPage />} />
             <Route path="/ai" element={<Ai />} />
 
-            {/* Protected routes wrapped with the Layout component */}
+            {/* ✅ UPDATED: Added "admin" to all allowedRoles arrays below */}
+            
             <Route
               path="/dashboard"
               element={
@@ -50,7 +50,7 @@ function App() {
             <Route
               path="/registration"
               element={
-                <ProtectedRoute allowedRoles={["receptionist"]}>
+                <ProtectedRoute allowedRoles={["receptionist", "admin"]}>
                   <Layout currentSection="registration">
                     <PatientRegistration />
                   </Layout>
@@ -61,7 +61,7 @@ function App() {
               path="/pre-opd"
               element={
                 <ProtectedRoute
-                  allowedRoles={["receptionist", "doctor", "staff-nurse"]}
+                  allowedRoles={["receptionist", "doctor", "staff-nurse", "admin"]}
                 >
                   <Layout currentSection="queue">
                     <PatientQueue />
@@ -70,12 +70,11 @@ function App() {
               }
             />
 
-            {/* NEW: IPD Queue Route */}
             <Route
               path="/ipd-queue"
               element={
                 <ProtectedRoute
-                  allowedRoles={["doctor", "staff-nurse", "receptionist"]}
+                  allowedRoles={["doctor", "staff-nurse", "receptionist", "admin"]}
                 >
                   <Layout currentSection="ipd-queue">
                     <IPDQueue />
@@ -84,11 +83,10 @@ function App() {
               }
             />
 
-            {/* 🟢 Lab Requests Route for Technician */}
             <Route
               path="/lab-requests"
               element={
-                <ProtectedRoute allowedRoles={["technician"]}>
+                <ProtectedRoute allowedRoles={["technician", "admin"]}>
                   <Layout currentSection="lab-requests">
                     <LabTestQueue />
                   </Layout>
@@ -99,7 +97,7 @@ function App() {
             <Route
               path="/doctor-module"
               element={
-                <ProtectedRoute allowedRoles={["doctor"]}>
+                <ProtectedRoute allowedRoles={["doctor", "admin"]}>
                   <Layout currentSection="doctor">
                     <DoctorModule />
                   </Layout>
@@ -109,7 +107,7 @@ function App() {
             <Route
               path="/pharmacy"
               element={
-                <ProtectedRoute allowedRoles={["pharmacist"]}>
+                <ProtectedRoute allowedRoles={["pharmacist", "admin"]}>
                   <Layout currentSection="pharmacy">
                     <PharmacyModule />
                   </Layout>
@@ -119,7 +117,7 @@ function App() {
             <Route
               path="/staff"
               element={
-                <ProtectedRoute allowedRoles={["staff-nurse"]}>
+                <ProtectedRoute allowedRoles={["staff-nurse", "admin"]}>
                   <Layout currentSection="staff">
                     <StaffDashboard />
                   </Layout>
@@ -127,7 +125,6 @@ function App() {
               }
             />
 
-            {/* Catch-all route for unhandled paths */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>
