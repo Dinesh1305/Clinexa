@@ -126,8 +126,9 @@ const AutocompleteInput: React.FC<{
     };
   }, [wrapperRef]);
 
+  // ✅ CHANGED: Filter using startsWith() instead of includes()
   const filteredSymptoms = symptomOptions.filter((s) =>
-    s.toLowerCase().includes(inputValue.toLowerCase())
+    s.toLowerCase().startsWith(inputValue.toLowerCase())
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -166,6 +167,7 @@ const AutocompleteInput: React.FC<{
           className="p-2 pr-10 border border-gray-300 rounded-md w-full bg-gray-50 focus:ring-2 focus:ring-[#012e58] focus:border-[#012e58] transition duration-200 ease-in-out text-[#0B2D4D] placeholder:text-gray-500 text-lg"
           placeholder={placeholder}
         />
+        {/* --- SMALL ADD BUTTON --- */}
         {showAddButton && (
           <button
             type="button"
@@ -658,8 +660,6 @@ const DoctorModuleContent: React.FC<DoctorModuleProps> = ({
     e.preventDefault();
     dragOverItem.current = position;
 
-    // Optional: Implement real-time reordering visual feedback here
-    // For simplicity, we commit change on drop, but you could swap state here
     if (
       dragItem.current !== null &&
       dragItem.current !== dragOverItem.current
